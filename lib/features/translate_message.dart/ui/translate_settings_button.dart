@@ -33,11 +33,10 @@ void showSelectLang() {
           onSubmit: (value) {
             pop();
             final languages = value
-                .split(' ')
-                // .where((e) => e.isNotEmpty)
+                .split(',')
+                .where((e) => e.isNotEmpty)
                 .map((e) => e.trim().toLowerCase())
                 .toList();
-            languages.removeWhere((e) => e.isEmpty);
             context.read<TranslateMessageBloc>().add(EnableTranslateEvent(
                   languages: languages,
                 ));

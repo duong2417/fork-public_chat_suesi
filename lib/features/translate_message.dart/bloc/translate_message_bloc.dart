@@ -11,14 +11,14 @@ class TranslateMessageBloc
     extends Bloc<TranslateMessageEvent, TranslateMessageState> {
   final LocalSharedData _localSharedData = LocalSharedData();
   TranslateMessageBloc() : super(TranslateMessageInit()) {
-    on<EnableTranslateEvent>(_onSelectLanguage);
+    on<EnableTranslateEvent>(_onEnableTranslateMessage);
     on<LoadHistoryLanguagesEvent>(_onLoadHistoryLanguages);
   }
-  Future<void> _onSelectLanguage(
+  Future<void> _onEnableTranslateMessage(
     EnableTranslateEvent event,
     Emitter<TranslateMessageState> emit,
   ) async {
-    ServiceLocator.instance.get<Database>().addLanguage(event.languages.first);
+    ServiceLocator.instance.get<Database>().addLanguage(event.languages);
     _localSharedData.setCurrentSelectedLanguages(event.languages);
     emitSafely(EnableTranslateState(
       selectedLanguages: event.languages,

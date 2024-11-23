@@ -22,15 +22,15 @@ class TranslatePopup extends StatelessWidget {
         ListHintWidget<String>(
           fetchListData: fetchListHistoryLanguages,
           onSelect: (value) {
-            _controller.text += '$value ';
+            _controller.text += '$value,';
           },
           onUnSelect: (value) {
-            _controller.text = _controller.text.replaceAll('$value ', '');
+            _controller.text = _controller.text.replaceAll('$value,', '');
           },
         ),
         const SizedBox(height: 10),
         Text(
-          'ví dụ: vi en... (cách nhau bởi dấu cách)',
+          'Ví dụ: vi, en... (cách nhau bởi dấu phẩy)',
           style: Theme.of(context).textTheme.bodyMedium,
         ),
         TextFieldInput(

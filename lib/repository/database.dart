@@ -57,16 +57,10 @@ final class Database {
         .snapshots();
   }
 
-  void addLanguage(String language) async {
+  void addLanguage(List<String> languages) async {
     final collection = FirebaseFirestore.instance.collection(_languageList);
-
-    final existingLanguage = await collection
-        .where('language', isEqualTo: language.toLowerCase())
-        .get();
-
-    if (existingLanguage.docs.isEmpty) {
-      collection.add({'language': language.toLowerCase()});
-    }
+    collection
+        .add({'language': languages.map((e) => e.toLowerCase()).toList()});
   }
 
   /// ###############################################################
