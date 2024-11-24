@@ -18,7 +18,7 @@ const generativeModelPreview = vertexAI.preview.getGenerativeModel({
 });
 
 // trigger when the chat data on public collection change to translate the message
-exports.myOnChatWritten = v2.firestore.onDocumentWritten("mydb/public/{messageId}", async (event) => {
+exports.myOnChatWritten = v2.firestore.onDocumentWritten("/public/{messageId}", async (event) => {
   const document = event.data.after.data();
   const message = document["message"];
 
@@ -32,7 +32,7 @@ exports.myOnChatWritten = v2.firestore.onDocumentWritten("mydb/public/{messageId
   const curTranslations = document["translations"];
 
   // check if message is translated
-  if (curTranslations != undefined) {
+  if (curTranslations != undefined && curTranslations.length > 0) {
     // message is translated before,
     // check the original message
     const original = document["original"];
@@ -48,14 +48,11 @@ exports.myOnChatWritten = v2.firestore.onDocumentWritten("mydb/public/{messageId
   const db = admin.firestore();
   const languagesCollection = db.collection("languages");
   const languagesSnapshot = await languagesCollection.get();
-  // use "reduce" to merge all languages from different docs into one array
-  const languages = languagesSnapshot.docs.reduce((acc, doc) => {
-    const langArray = doc.data().language || []; // if no language, set it to empty array
-    return [...acc, ...langArray];
-  }, []);
-  console.log("languages: ", languages);
-// const languageCodes = ["en", "vi", "japen", "vietnamese", "việt nam", "vi_VN", "japennese", "english"];
-
+  const languages = languagesSnapshot.docs.map((e) => e.data().language);
+  // const languageCodes = ["en", "vi", "japen", "vietnamese", "việt nam", "vi_VN", "japennese", "english"];
+  if (languages.length == 0) {
+    return;
+  }
   let translated = [];
 
   if (languages.length > 0) {
@@ -70,7 +67,7 @@ exports.myOnChatWritten = v2.firestore.onDocumentWritten("mydb/public/{messageId
         items: {
           type: "object",
           properties: {
-            languages: {
+            language_names: {
               type: "array",
               items: {
                 type: "string",
@@ -84,7 +81,7 @@ exports.myOnChatWritten = v2.firestore.onDocumentWritten("mydb/public/{messageId
               type: "string",
             },
           },
-          required: ["languages", "translation", "code"],
+          required: ["language_names", "translation", "code"],
         },
       },
     };
@@ -94,23 +91,23 @@ exports.myOnChatWritten = v2.firestore.onDocumentWritten("mydb/public/{messageId
     });
 
     const result = await chatSession.sendMessage(`
-          Translate '${message}' to the following languages: ${languages.toString()}.
+          Translate '${message}' to the following languages: [${languages.join(",")}].
 Don't correct any spelling in that list of languages, keep them original.
       Ignore languages that match the language of the original text.
-      If any specified language is not supported, set the 'translation' field to null.
+      If any specified language is not supported, set the 'translation' field to 'unsupported'.
       Group related languages/language codes/country codes/country names... into a list.
       In the response, set that list as the value of the "languages" field and set language code as value of "code" field.
       Response example for translating "Hi" to [en, vi, japen, việt nam]:
-      [{"languages": [vi, việt nam], "code": "vi", "translation":"Xin chào"},
-  {"languages": [japen], "code": "ja", "translation":"こんにちは"},]
+      [{"language_names": [vi, việt nam], "code": "vi", "translation":"Xin chào"},
+  {"language_names": [japen], "code": "ja", "translation":"こんにちは"},]
         `);
     const response = result.response;
     console.log("Response:", JSON.stringify(response));
 
     const jsonTranslated = response.candidates[0].content.parts[0].text;
     console.log("translated json: ", jsonTranslated);
-     // parse this json to get translated text out
-     try {
+    // parse this json to get translated text out
+    try {
       translated = Array.from(JSON.parse(jsonTranslated));
     } catch (e) {
       console.log("Error: ", e); // if error, maybe show the original json

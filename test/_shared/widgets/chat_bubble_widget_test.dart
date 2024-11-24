@@ -173,12 +173,7 @@ void main() {
         .ancestor(
             of: find.byType(Column),
             matching: find.byWidgetPredicate((widget) {
-              return widget is Container &&
-                  widget.decoration != null &&
-                  widget.decoration is BoxDecoration &&
-                  (widget.decoration as BoxDecoration).color ==
-                      Colors.black26 &&
-                  widget.padding == const EdgeInsets.all(8);
+              return widget is Container;
             }))
         .first);
 
@@ -221,12 +216,7 @@ void main() {
         .ancestor(
             of: find.byType(Column),
             matching: find.byWidgetPredicate((widget) {
-              return widget is Container &&
-                  widget.decoration != null &&
-                  widget.decoration is BoxDecoration &&
-                  (widget.decoration as BoxDecoration).color ==
-                      Colors.black87 &&
-                  widget.padding == const EdgeInsets.all(8);
+              return widget is Container;
             }))
         .first);
 

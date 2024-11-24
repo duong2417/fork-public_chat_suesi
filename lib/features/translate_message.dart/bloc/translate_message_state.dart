@@ -1,34 +1,51 @@
 part of 'translate_message_bloc.dart';
 
-abstract class TranslateMessageState {}
+abstract class TranslateMessageState extends Equatable {
+  const TranslateMessageState();
+}
 
 class TranslateMessageInit extends TranslateMessageState {
-  TranslateMessageInit();
+  @override
+  List<Object?> get props => [];
 }
 
 class TranslateMessageLoading extends TranslateMessageState {
-  TranslateMessageLoading();
+  @override
+  List<Object?> get props => [];
 }
 
 class TranslateMessageError extends TranslateMessageState {
-  final String message;
-  TranslateMessageError({
-    required this.message,
-  });
+  final String error;
+  const TranslateMessageError(this.error);
+  @override
+  List<Object?> get props => [error];
 }
 
 class EnableTranslateState extends TranslateMessageState {
   final List<String> selectedLanguages;
-  EnableTranslateState({
+  const EnableTranslateState({
     required this.selectedLanguages,
   });
+  @override
+  List<Object?> get props => [selectedLanguages, selectedLanguages.length];
+
+  EnableTranslateState copyWith({
+    List<String>? selectedLanguages,
+  }) {
+    return EnableTranslateState(
+      selectedLanguages: selectedLanguages ?? this.selectedLanguages,
+    );
+  } 
 }
 
 class DisableTranslateState extends TranslateMessageState {
-  DisableTranslateState();
+  @override
+  List<Object?> get props => [];
 }
 
 class LoadHistoryLanguages extends TranslateMessageState {
   final List<String> listHistoryLanguages;
-  LoadHistoryLanguages({required this.listHistoryLanguages});
+  const LoadHistoryLanguages({required this.listHistoryLanguages});
+  @override
+  List<Object?> get props => [listHistoryLanguages];
 }
