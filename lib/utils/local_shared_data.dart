@@ -1,8 +1,10 @@
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const keyCurrentSelectedLanguages = 'current_selected_languages';
-String deviceLocale = 'việt nam';
-// String deviceLocale = Platform.isAndroid ? Platform.localeName : 'en';
+String deviceLocale = kIsWeb ? 'english' : Platform.localeName;
 String defaultLanguageCode = 'en';
 
 class LocalSharedData {
@@ -24,11 +26,7 @@ class LocalSharedData {
   }
 
   List<String> getCurrentSelectedLanguages() {
-    // return sharedPreferences.getStringList(keyCurrentSelectedLanguages) ??
-    //     [
-    //       deviceLocale,
-    //       defaultLanguageCode
-    //     ]; // deviceLocale != 'en' ? 'en' : 'japan'
-    return ['việt nam', 'en'];
+    return sharedPreferences.getStringList(keyCurrentSelectedLanguages) ??
+        [deviceLocale, defaultLanguageCode];
   }
 }

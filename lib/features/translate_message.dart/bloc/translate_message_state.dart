@@ -35,7 +35,7 @@ class EnableTranslateState extends TranslateMessageState {
     return EnableTranslateState(
       selectedLanguages: selectedLanguages ?? this.selectedLanguages,
     );
-  } 
+  }
 }
 
 class DisableTranslateState extends TranslateMessageState {
