@@ -28,6 +28,41 @@ final class Database {
         .withConverter(fromFirestore: fromFirestore, toFirestore: toFirestore);
   }
 
+  Query<T> getMessageChunkFromNew<T>({
+    required FromFirestore<T> fromFirestore,
+    required ToFirestore<T> toFirestore,
+    // required String id,
+  }) {
+    return FirebaseFirestore.instance
+        .collection("new")
+        // .orderBy('index')
+        .withConverter(fromFirestore: fromFirestore, toFirestore: toFirestore);
+  }
+
+  Query<T> getMessageChunk<T>({
+    required FromFirestore<T> fromFirestore,
+    required ToFirestore<T> toFirestore,
+    required String id,
+  }) {
+    return FirebaseFirestore.instance
+        .collection(id)
+        // .orderBy('index')
+        .withConverter(fromFirestore: fromFirestore, toFirestore: toFirestore);
+  }
+
+  Query<T> getMessageChunkSubcollection<T>({
+    required FromFirestore<T> fromFirestore,
+    required ToFirestore<T> toFirestore,
+    required String id,
+  }) {
+    return FirebaseFirestore.instance
+        .collection(_publicRoom)
+        .doc(id)
+        .collection('message_chunk')
+        .orderBy('index')
+        .withConverter(fromFirestore: fromFirestore, toFirestore: toFirestore);
+  }
+
   void saveUser(User user) {
     final UserDetail userDetail = UserDetail.fromFirebaseUser(user);
     FirebaseFirestore.instance
@@ -52,6 +87,23 @@ final class Database {
         .withConverter(
             fromFirestore: _userDetailFromFirestore,
             toFirestore: _userDetailToFirestore)
+        .snapshots();
+  }
+
+  // Stream<QuerySnapshot<Map<String, dynamic>>> getMessageChunkStream(
+  //     String messageId) {
+  //   return FirebaseFirestore.instance
+  //       .collection(_publicRoom)
+  //       .doc(messageId)
+  //       .collection('message_chunk')
+  //       .orderBy('index')
+  //       .snapshots();
+  // }
+  Stream<QuerySnapshot<Map<String, dynamic>>> getMessageChunkStream(
+      String messageId) {
+    return FirebaseFirestore.instance
+        .collection(messageId)
+        .orderBy('index')
         .snapshots();
   }
 

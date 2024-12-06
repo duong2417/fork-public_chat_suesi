@@ -5,22 +5,25 @@ final class Message {
   final String id;
   final String message;
   final String sender;
+  final String role;
   final Timestamp timestamp;
   final Map<String, dynamic> translations;
 
   Message({required this.message, required this.sender})
       : id = '',
+        role = 'user',
         timestamp = Timestamp.now(),
         translations = {};
 
   Message.fromMap(this.id, Map<String, dynamic> map)
       : message = map['message'] ?? '',
         sender = map['sender'],
+        role = map['role'] ?? 'bot',
         timestamp = map['time'],
         translations = map['translated'] as Map<String, dynamic>? ?? {};
 
   Map<String, dynamic> toMap() =>
-      {'message': message, 'sender': sender, 'time': timestamp};
+      {'message': message, 'sender': sender, 'role': role, 'time': timestamp, 'new_time': Timestamp.fromMicrosecondsSinceEpoch(timestamp.microsecondsSinceEpoch + 1000)};
   @override
   String toString() => toMap().toString();
   // 'Message(id: $id, message: $message, sender: $sender, timestamp: $timestamp, translations: $translations)';

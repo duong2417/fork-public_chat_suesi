@@ -21,7 +21,6 @@ const admin = require("firebase-admin");
 
 if (!admin.apps.length) {
   admin.initializeApp();
-  // const database = admin.database();
 }
 const db = admin.firestore();
 const vertexAI = new vertexAIApi.VertexAI({project: project, location: location});
@@ -61,33 +60,21 @@ exports.onChatWritten = v2.firestore.onDocumentWritten("/public/{messageId}", as
       generationConfig: generationConfig,
     });
     const result = await chatSession.sendMessageStream(message);
-    const id = `chunk${event.params.messageId}`;
-    const newMessage = db.collection("public").doc(id);
-    await newMessage.set({
-      "role": "bot",
-      "sender": "bot",
-      "time": time,
-    });
     // Process streaming response and write each chunk to Firestore
     let chunkIndex = 0;
-    let textTotal = "";
+    // let textTotal = "";
     for await (const chunk of result.stream) {
       const text = chunk.candidates[0].content.parts[0].text;
+      //   textTotal += text;
       ++chunkIndex;
       const chunkData = {
         "index": chunkIndex,
         "text": text,
       };
-      // database.ref(id).push(text);
-      // await db.collection(id).doc(`chunk_${chunkIndex}`).set(chunkData);
-      await newMessage.collection("message_chunk").doc(`chunk_${chunkIndex}`).set(chunkData);
-      textTotal += text;
+      await db.collection("new").doc(`chunk_${chunkIndex}`).set(chunkData);
       console.log(`${chunkIndex}:`, text);
     }
-    // await new Promise((resolve) => setTimeout(resolve, 50));
-    setTimeout(async () => {
-      await newMessage.set({"message": textTotal}, {merge: true});
-    }, 30000);// 60s
+    // newMessage.set({"message": textTotal}, {merge: true});
   }
   // write to message
   // const data = event.data.after.data();
