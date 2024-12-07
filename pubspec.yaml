@@ -36,6 +36,9 @@ dependencies:
   # Gemini for GenAI chat
   google_generative_ai: ^0.4.3
   image_network: ^2.5.6
+  flutter_eval: ^0.7.6
+  # font_awesome_flutter: ^10.8.0
+  cloud_functions: ^4.7.6
 
 dev_dependencies:
   flutter_test:
