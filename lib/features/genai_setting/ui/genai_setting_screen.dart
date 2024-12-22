@@ -10,11 +10,9 @@ class GenaiSettingScreen extends StatefulWidget {
   const GenaiSettingScreen(
       {super.key,
       this.isFullScreen = false,
-      this.isChatOpen = false,
       required this.onTapFullScreen,
       required this.onTapClose});
   final bool isFullScreen;
-  final bool isChatOpen;
   final Function() onTapFullScreen;
   final Function() onTapClose;
   @override
@@ -23,8 +21,9 @@ class GenaiSettingScreen extends StatefulWidget {
 
 class _GenaiSettingScreenState extends State<GenaiSettingScreen> {
   @override
-  Widget build(BuildContext context) => Center(
-          child: Column(
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           buildTitle(),
@@ -37,6 +36,7 @@ class _GenaiSettingScreenState extends State<GenaiSettingScreen> {
             }
 
             return ListView(
+              reverse: true,
               children: data.map((e) {
                 final bool isMine = e.sender == Sender.user;
                 return GenAIChatBubble(
@@ -50,7 +50,9 @@ class _GenaiSettingScreenState extends State<GenaiSettingScreen> {
             },
           )
         ],
-      ));
+      ),
+    );
+  }
 
   Widget buildTitle() {
     return Container(
@@ -89,55 +91,6 @@ class _GenaiSettingScreenState extends State<GenaiSettingScreen> {
             ],
           ),
         ],
-      ),
-    );
-  }
-
-  Widget buildTitlePin() {
-    return Padding(
-      padding: EdgeInsets.zero,
-      // left: 0,
-      // right: 0,
-      child: Positioned(
-        top: 100,
-        child: Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: Colors.amber,
-            borderRadius: widget.isFullScreen
-                ? BorderRadius.zero
-                : const BorderRadius.vertical(top: Radius.circular(15)),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                "Gemini AI",
-                style: TextStyle(color: Colors.white, fontSize: 18),
-              ),
-              Row(
-                children: [
-                  IconButton(
-                    icon: Icon(
-                        widget.isFullScreen
-                            ? Icons.fullscreen_exit
-                            : Icons.fullscreen,
-                        color: Colors.white),
-                    onPressed: () {
-                      widget.onTapFullScreen();
-                    },
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white),
-                    onPressed: () {
-                      widget.onTapClose();
-                    },
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }

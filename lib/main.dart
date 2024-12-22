@@ -14,15 +14,6 @@ void main() async {
 
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   ServiceLocator.instance.initialise();
-  //  const ip = "127.0.0.1";
-  // // Cấu hình Firestore
-  // FirebaseFirestore.instance.settings = const Settings(
-  //   host: '$ip:4000', // Thay đổi port thành 4000
-  //   sslEnabled: false,
-  //   persistenceEnabled: false,
-  // );
-  // FirebaseFirestore.instance.useFirestoreEmulator(ip, 8080);
-  // FirebaseFunctions.instance.useFunctionsEmulator(ip, 5001);
   runApp(BlocProvider<GenaiBloc>(
     create: (context) => GenaiBloc(),
     child: const MainApp(),
