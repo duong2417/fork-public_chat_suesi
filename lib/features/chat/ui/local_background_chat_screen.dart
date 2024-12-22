@@ -148,10 +148,20 @@ class BackgroundChatScreen extends StatelessWidget {
             packages: {
               model.folder_name: {
                 model.file_name: model.code ??
-                    '''
-              import 'package:flutter/material.dart';
-              class BaseScreen extends StatelessWidget {   const BaseScreen(this.widget);   final Widget widget;   @override   Widget build(BuildContext context) {     return Text('codebase not exist');   } }
-'''
+                    '''import 'package:flutter/material.dart';
+class BaseScreen extends StatelessWidget {
+  const BaseScreen(this.widget);
+  final Widget widget;
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Container(
+        color: Colors.blue,
+        child: widget,
+      ),
+    );
+  }
+}'''
               }
             },
             library: 'package:${model.path}',

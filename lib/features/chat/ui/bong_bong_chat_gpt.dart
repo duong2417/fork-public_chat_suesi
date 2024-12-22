@@ -23,8 +23,6 @@ class _MyPublicChatScreenState extends State<MyPublicChatScreen> {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        // Nội dung chính
-        // const Center(child: Text('Nhấn vào bong bóng chat để mở hộp thoại')),
         const PublicChatScreen(),
         // Bong bóng chat
         Positioned(
