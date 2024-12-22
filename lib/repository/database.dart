@@ -14,6 +14,8 @@ final class Database {
 
   final String _publicRoom = 'public';
   final String _userList = 'users';
+  final String _privateChat = 'private_chat';
+  final String _conversation = 'conversation';
   void writePublicMessage(Message message) {
     FirebaseFirestore.instance.collection(_publicRoom).add(message.toMap());
   }
