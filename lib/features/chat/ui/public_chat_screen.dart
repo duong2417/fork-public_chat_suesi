@@ -9,7 +9,7 @@ import 'package:public_chat/_shared/widgets/chat_bubble_widget.dart';
 import 'package:public_chat/_shared/widgets/message_box_widget.dart';
 import 'package:public_chat/features/chat/bloc/chat_cubit.dart';
 import 'package:public_chat/utils/locale_support.dart';
-import '../../translate_message.dart/ui/translate_settings_button.dart';
+// import '../../translate_message.dart/ui/translate_settings_button.dart';
 
 class PublicChatScreen extends StatelessWidget {
   const PublicChatScreen({super.key});
@@ -23,7 +23,7 @@ class PublicChatScreen extends StatelessWidget {
       child: Scaffold(
           appBar: AppBar(
             title: Text(context.locale.publicRoomTitle),
-            actions: const [TranslateSettingsButton()],
+            // actions: const [TranslateSettingsButton()],
           ),
           body: Column(
             children: [
@@ -60,7 +60,11 @@ class PublicChatScreen extends StatelessWidget {
                                   message: message.message,
                                   photoUrl: photoUrl,
                                   displayName: displayName,
-                                  translations: message.translations);
+                                  translations: message.translations,
+                                  // translations: const {
+                                  //   'translations': "message.translations",
+                                  // }
+                                  );
                             },
                           ),
                         );
@@ -78,13 +82,13 @@ class PublicChatScreen extends StatelessWidget {
               ),
               MessageBox(
                 onSendMessage: (value) {
-                  if (user == null) {
-                    // do nothing
-                    return;
-                  }
-                  FirebaseFirestore.instance
-                      .collection('public')
-                      .add(Message(sender: user.uid, message: value).toMap());
+                  // if (user == null) {//TODO
+                  //   // do nothing
+                  //   return;
+                  // }
+                  FirebaseFirestore.instance.collection('public').add(
+                      Message(sender: user?.uid ?? 'UID', message: value)
+                          .toMap());
                 },
               )
             ],

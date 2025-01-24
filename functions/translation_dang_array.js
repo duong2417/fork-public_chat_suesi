@@ -64,71 +64,99 @@ exports.myOnChatWritten = v2.firestore.onDocumentWritten("/public/{messageId}", 
     console.log("No languages in database, skipping");
     return;
   }
-  const generationConfig = {
-    temperature: 1,
-    topP: 0.95,
-    topK: 64,
-    maxOutputTokens: 8192,
-    responseMimeType: "application/json",
-    responseSchema: {
-      type: "array",
-      items: {
-        type: "object",
-        properties: {
-          // language_names: {
-          //   type: "array",
-          //   items: {
-          //     type: "string",
-          //   },
-          //   minItems: 1,
-          // },
-          translation: {
-            type: "string",
+    const generationConfig = {
+      temperature: 1,
+      topP: 0.95,
+      topK: 64,
+      maxOutputTokens: 8192,
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            language_names: {
+              type: "array",
+              items: {
+                type: "string",
+              },
+              minItems: 1,
+            },
+            translation: {
+              type: "string",
+            },
+            code: {
+              type: "string",
+            },
           },
-          code: {
-            type: "string",
-          },
+          required: ["language_names", "translation", "code"],
         },
-        required: ["translation", "code"],
       },
-    },
-  };
-  // const generationConfig = {
-  //   temperature: 1,
-  //   topP: 0.95,
-  //   topK: 64,
-  //   maxOutputTokens: 8192,
-  //   responseMimeType: "application/json",
-  //   responseSchema: {
-  //     type: "object",
-  //     properties: {
-  //       en: {
-  //         type: "string"
-  //       }
-  //     },
-  //     required: [
-  //       "en"
-  //     ]
-  //   },
-  // };
+    };
     const chatSession = generativeModelPreview.startChat({
       generationConfig: generationConfig,
     });
+  // 1. Dịch message sang các ngôn ngữ hiện có
+  // const chatSession = generativeModelPreview.startChat({
+  //   generationConfig: {
+  //     temperature: 1,
+  //     topP: 0.95,
+  //     topK: 64,
+  //     maxOutputTokens: 8192,
+  //   },
+  //   tools: [{ 
+  //     functionDeclarations: [{
+  //       name: "translate",
+  //       description: "Translate text to multiple languages",
+  //       parameters: {
+  //         type: "object",
+  //         properties: {
+  //           translations: {
+  //             type: "array",
+  //             items: {
+  //               type: "object",
+  //               properties: {
+  //                 language_names: {
+  //                   type: "array",
+  //                   items: { type: "string" },
+  //                   description: "List of language names and codes that are related"
+  //                 },
+  //                 code: {
+  //                   type: "string",
+  //                   description: "ISO language code"
+  //                 },
+  //                 translation: {
+  //                   type: "string",
+  //                   description: "Translated text"
+  //                 }
+  //               },
+  //               required: ["language_names", "code", "translation"]
+  //             }
+  //           }
+  //         },
+  //         required: ["translations"]
+  //       }
+  //     }]
+  //   }]
+  // });
 
   let translated = [];
   try {
-    const result = await chatSession.sendMessage(`
-      Translate '${message}' to these languages: [${languages.join(',')}]. Only translate to the languages in that list.
-    `);
-    // Return translations in format like this example:
-    // {
-    //   "translations": [
-    //     {"code": "vi", "translation": "xin chào"},
-    //     {"code": "en", "translation": "hello"},
-    //     {"code": "ja", "translation": "こんにちは"}
-    //   ]
-    // }
+    const result = await chatSession.sendMessage(`Translate '${message}' to these languages: [${languages.join(',')}]`);
+    // const result = await chatSession.sendMessage({
+    //   content: `Translate "test" to Vietnamese`
+    //   // content: `Translate "${message}" to these languages: [${languages.join(",")}]`.trim()
+    // });
+    
     console.log("Translation response:", JSON.stringify(result.response));
+    
+    // if (result.response.candidates[0].content.parts[0].functionCall) {
+    //   const functionCall = result.response.candidates[0].content.parts[0].functionCall;
+    //   if (functionCall.name === "translate") {
+    //     translated = functionCall.args.translations;
+    //     console.log("Translated:", translated);// [{ code: 'vi', translation: 'test', language_names: [ 'Vietnamese' ] }]
+    //   }
+    // }
     const response = result.response;
     console.log("Response:", JSON.stringify(response));
 
@@ -152,18 +180,16 @@ exports.myOnChatWritten = v2.firestore.onDocumentWritten("/public/{messageId}", 
     tools: [{ 
       functionDeclarations: [{
         name: "detectLanguage",
-        description: "Detect and return only the ISO language code",
+        description: "Detect the ISO language code of the text",
         parameters: {
           type: "object",
           properties: {
-            detectedCode: {
+            code: {
               type: "string",
-              description: "ISO 639-1 language code (2 letters)",
-              pattern: "^[a-z]{2}$",
-              examples: ["vi", "en", "ja", "ko", "zh", "fr", "de"]
+              description: "ISO language code (e.g. vi, en, ja, ko, zh)"
             }
           },
-          required: ["detectedCode"]
+          required: ["code"]
         }
       }]
     }]
@@ -175,40 +201,38 @@ exports.myOnChatWritten = v2.firestore.onDocumentWritten("/public/{messageId}", 
     console.log("Existing language codes:", existingCodes);
 
     const detectResult = await detectSession.sendMessage(`
-      You are a language detection expert. Your task is to:
-      1. Analyze this text: "${message}"
-      2. Return ONLY the ISO 639-1 language code (2 letters)
-      3. Use the detectLanguage function to return the code
-      4. Do not explain or add any other information
-      
-      Examples of valid responses:
-      - Vietnamese text -> {"detectedCode": "vi"}
-      - English text -> {"detectedCode": "en"}
-      - Japanese text -> {"detectedCode": "ja"}
-      
-      Current codes in database: [${existingCodes.join(",")}]
-    `);
+        You are a language detection expert.
+        Detect the language of this text: "${message}"
+        Return only the ISO language code (e.g. vi, en, ja, ko, zh).
+        If you're not confident about the detection, return "unknown".
+      `
+    );
+            // Current language codes in database: [${existingCodes.join(",")}]
 
     console.log("Detection response:", JSON.stringify(detectResult.response));
 
     if (detectResult.response.candidates[0].content.parts[0].functionCall) {
-      const {detectedCode} = detectResult.response.candidates[0].content.parts[0].functionCall.args;
-      console.log("Detected language code:", detectedCode);
+      const {code} = detectResult.response.candidates[0].content.parts[0].functionCall.args;
+      console.log("Detected language code:", code);
 
-      if (detectedCode && !existingCodes.includes(detectedCode)) {
-        console.log(`Adding new language code: ${detectedCode}`);
+      if (code && code !== "unknown" && !existingCodes.includes(code)) {
+        console.log(`Adding new language code: ${code}`);
         try {
-          await languagesCollection.add({ code: detectedCode });
+          await languagesCollection.add({ code: code });
           console.log("Successfully added new language code to database");
-          languages.push(detectedCode);
+          
+          // Cập nhật danh sách ngôn ngữ local
+          languages.push(code);
         } catch (error) {
           console.error("Error adding new language code to database:", error);
         }
       } else {
-        console.log(`Language code ${detectedCode} already exists in database`);
+        console.log(
+          code === "unknown" 
+            ? "Could not detect language with confidence" 
+            : `Language code ${code} already exists in database`
+        );
       }
-    } else {
-      console.log("No function call in response - invalid detection");
     }
   } catch (error) {
     console.error("Language detection error:", error);

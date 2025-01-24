@@ -49,23 +49,23 @@ final class UserDetail {
 class TranslationModel {
   final String translation;
   final String code;
-  final List<String> languageNames;
+  // final List<String> languageNames;
   TranslationModel({
     required this.translation,
     required this.code,
-    required this.languageNames,
+    // required this.languageNames,
   });
   TranslationModel.fromMap(Map<String, dynamic> map)
       : translation = map['translation'],
-        code = map['code'],
-        languageNames = (map['language_names'] as List<dynamic>?)
-                ?.map((e) => e.toString())
-                .toList() ??
-            [];
+        code = map['code'];
+        // languageNames = (map['language_names'] as List<dynamic>?)
+        //         ?.map((e) => e.toString())
+        //         .toList() ??
+        //     [];
   Map<String, dynamic> toMap() => {
         'translation': translation,
         'code': code,
-        'language_names': languageNames
+        // 'language_names': languageNames
       };
   @override
   String toString() {
