@@ -12,7 +12,7 @@ const admin = require("firebase-admin");
 
 admin.initializeApp();
 
-const project = "flutter-dev-search";
+const project = "proj-atc";
 const location = "us-central1";
 const textModel = "gemini-1.5-flash";
 // const visionModel = "gemini-1.0-pro-vision";
@@ -24,7 +24,7 @@ const generativeModelPreview = vertexAI.preview.getGenerativeModel({
 });
 
 // trigger when the chat data on public collection change to translate the message
-exports.myOnChatWritten = v2.firestore.onDocumentWritten("/public/{messageId}", async (event) => {
+exports.onChatWritten = v2.firestore.onDocumentWritten("/public/{messageId}", async (event) => {
   const document = event.data.after.data();
   const message = document["message"];
   const original = document["original"];
@@ -75,13 +75,6 @@ exports.myOnChatWritten = v2.firestore.onDocumentWritten("/public/{messageId}", 
       items: {
         type: "object",
         properties: {
-          // language_names: {
-          //   type: "array",
-          //   items: {
-          //     type: "string",
-          //   },
-          //   minItems: 1,
-          // },
           translation: {
             type: "string",
           },
@@ -93,24 +86,7 @@ exports.myOnChatWritten = v2.firestore.onDocumentWritten("/public/{messageId}", 
       },
     },
   };
-  // const generationConfig = {
-  //   temperature: 1,
-  //   topP: 0.95,
-  //   topK: 64,
-  //   maxOutputTokens: 8192,
-  //   responseMimeType: "application/json",
-  //   responseSchema: {
-  //     type: "object",
-  //     properties: {
-  //       en: {
-  //         type: "string"
-  //       }
-  //     },
-  //     required: [
-  //       "en"
-  //     ]
-  //   },
-  // };
+
     const chatSession = generativeModelPreview.startChat({
       generationConfig: generationConfig,
     });
@@ -120,14 +96,6 @@ exports.myOnChatWritten = v2.firestore.onDocumentWritten("/public/{messageId}", 
     const result = await chatSession.sendMessage(`
       Translate '${message}' to these languages: [${languages.join(',')}]. Only translate to the languages in that list.
       `);
-      // Return translations in format like this example:
-      // {
-      //   "translations": [
-      //     {"code": "vi", "translation": "xin chào"},
-      //     {"code": "en", "translation": "hello"},
-      //     {"code": "ja", "translation": "こんにちは"}
-      //   ]
-      // }
 
     console.log("Translation response:", JSON.stringify(result.response));
     const response = result.response;
@@ -182,7 +150,6 @@ exports.myOnChatWritten = v2.firestore.onDocumentWritten("/public/{messageId}", 
         If you're not confident about the detection, return "unknown".
       `
     );
-            // Current language codes in database: [${existingCodes.join(",")}]
 
     console.log("Detection response:", JSON.stringify(detectResult.response));
 
