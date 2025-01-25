@@ -12,7 +12,7 @@ const admin = require("firebase-admin");
 
 admin.initializeApp();
 
-const project = "proj-atc";
+const project = "flutter-dev-search";
 const location = "us-central1";
 const textModel = "gemini-1.5-flash";
 // const visionModel = "gemini-1.0-pro-vision";
