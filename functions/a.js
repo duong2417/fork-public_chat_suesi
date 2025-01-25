@@ -88,7 +88,8 @@ const tools = [{
       properties: {
         detectedLanguage: {
           type: "string",
-          description: "The ISO 639-1 language code that was detected"
+          description: "The ISO 639-1 language code that was detected",
+        pattern: "^[a-z]{2}$" // Thêm pattern để đảm bảo format ISO 639-1
         }
       },
       required: ["detectedLanguage"]
