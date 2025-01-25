@@ -1,3 +1,7 @@
+/* eslint-disable comma-spacing */
+/* eslint-disable eol-last */
+/* eslint-disable spaced-comment */
+/* eslint-disable require-jsdoc */
 /* eslint-disable operator-linebreak */
 /* eslint-disable key-spacing */
 /* eslint-disable quotes */
@@ -15,13 +19,45 @@ admin.initializeApp();
 const project = "flutter-dev-search";
 const location = "us-central1";
 const textModel = "gemini-1.5-flash";
-const visionModel = "gemini-1.0-pro-vision";
+// const visionModel = "gemini-1.0-pro-vision";
 
 const vertexAI = new vertexAIApi.VertexAI({ project: project, location: location });
 
 const generativeModelPreview = vertexAI.preview.getGenerativeModel({
   model: textModel,
+  tools: [{
+    functionDeclarations: [{
+      name: "saveNewLanguageCode",
+      description: "Save a new detected language code to Firestore if it doesn't exist",
+      parameters: {
+        type: "object",
+        properties: {
+          detectedLanguage: {
+            type: "string",
+            description: "ISO 639-1 language code of the detected language"
+          }
+        },
+        required: ["detectedLanguage"]
+      }
+    }]
+  }]
 });
+
+// Chuyển hàm saveNewLanguageCode thành async function để xử lý function calling
+async function saveNewLanguageCode(languagesCollection, detectedLanguage, languages) {
+  if (detectedLanguage && !languages.includes(detectedLanguage)) {
+    console.log(`Adding new language code: ${detectedLanguage}`);
+    try {
+      await languagesCollection.add({ code: detectedLanguage });
+      console.log("Successfully added new language code to database");
+      return true;
+    } catch (error) {
+      console.error("Error adding new language code to database:", error);
+      return false;
+    }
+  }
+  return false;
+}
 
 // trigger when the chat data on public collection change to translate the message
 exports.onChatWritten = v2.firestore.onDocumentWritten("/public/{messageId}", async (event) => {
@@ -40,13 +76,7 @@ exports.onChatWritten = v2.firestore.onDocumentWritten("/public/{messageId}", as
     return;
   }
 
-  // 2. Skip if this message has already been processed (has original and translations)
-  if (original && translations) {
-    console.log("Message already processed (has original and translations), skipping");
-    return;
-  }
-
-  // 3. Skip if this message is the original
+  // 2. Skip if this message is the original
   if (message === original) {
     console.log("This is an original message that was already processed, skipping");
     return;
@@ -61,6 +91,7 @@ exports.onChatWritten = v2.firestore.onDocumentWritten("/public/{messageId}", as
   console.log("Current languages in database:", languages);
 
   const chatSession = generativeModelPreview.startChat({
+    //use toolConfig instead of generationConfig to use function calling
     toolConfig: {
         functionDeclarations: [{
             name: "processMessage",
@@ -88,40 +119,43 @@ exports.onChatWritten = v2.firestore.onDocumentWritten("/public/{messageId}", as
                 required: ["detectedLanguage","translations"]
             }
         }],
-        functionCallMode: "ANY"
+        functionCallMode: "ANY"// để cho phép model tự do gọi function
     }
   });
 
   let translated = [];
   try {
-    const result = await chatSession.sendMessage(`
-      Translate this message: "${message}"
-      Target languages: [${languages.join(',')}]
-      
-      Return result in this exact JSON format:
-      {
-        "language": "detected_language_code",
-        "translations": {
-          "language_code": "translated_text"
-        }
-      }
-      
-      Only return the JSON, no explanation or other text.
-    `);
-//      2. Check if the detected language is in the existing languages list
-// 3. If the detected language is NOT in the list, provide translations to all existing languages
-// 4. If the detected language IS in the list, return empty translations array
-    console.log("Response:", JSON.stringify(result.response));
+    const result = await chatSession.sendMessage({
+      contents: [{
+        role: "user",
+        parts: [{
+          text: `
+            Translate this message: "${message}"
+            Target languages: [${languages.join(',')}]
+            
+            Also detect the language of the original message. If the detected language is not in the target languages list, call saveNewLanguageCode function with the detected language.
+            
+            For the translation results, return a JSON object in this exact format:
+            {
+              "language": "detected_language_code",
+              "translations": {
+                "language_code": "translated_text"
+              }
+            }
+          `
+        }]
+      }]
+    });
 
-    // Tìm vị trí bắt đầu và kết thúc của JSON trong text
+    // Parse response
     const responseText = result.response.candidates[0].content.parts[0].text;
     const jsonStart = responseText.indexOf('{');
     const jsonEnd = responseText.lastIndexOf('}') + 1;
     const jsonStr = responseText.slice(jsonStart, jsonEnd);
     
-    // Parse JSON string
     const parsedResponse = JSON.parse(jsonStr);
     
+    // Xử lý translations
     const detectedLanguage = parsedResponse.language;
     const translations = Object.entries(parsedResponse.translations).map(([code, translation]) => ({
       code,
@@ -132,14 +166,10 @@ exports.onChatWritten = v2.firestore.onDocumentWritten("/public/{messageId}", as
     console.log(`Translations: ${JSON.stringify(translated)}`);
     console.log(`Detected language: ${detectedLanguage}`);
 
-    if (detectedLanguage && !languages.includes(detectedLanguage)) {
-      console.log(`Adding new language code: ${detectedLanguage}`);
-      try {
-        await languagesCollection.add({ code: detectedLanguage });
-        console.log("Successfully added new language code to database");
-      } catch (error) {
-        console.error("Error adding new language code to database:", error);
-      }
+    // Kiểm tra và gọi function nếu cần
+    if (!languages.includes(detectedLanguage)) {
+      console.log(`Detected new language: ${detectedLanguage}`);
+      await saveNewLanguageCode(languagesCollection, detectedLanguage, languages);
     }
   } catch (error) {
     console.error("Processing error:", error);
