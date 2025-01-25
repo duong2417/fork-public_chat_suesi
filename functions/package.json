@@ -13,7 +13,7 @@
   "engines": {
     "node": "22"
   },
-  "main": "index.js",
+  "main": "a.js",
   "dependencies": {
     "@google-cloud/vertexai": "^1.9.0",
     "firebase-admin": "^12.0.0",
