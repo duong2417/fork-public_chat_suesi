@@ -1,3 +1,4 @@
+/* eslint-disable spaced-comment */
 /* eslint-disable comma-spacing */
 /* eslint-disable object-curly-spacing */
 /* eslint-disable require-jsdoc */
@@ -53,14 +54,7 @@ const generativeModelPreview = vertexAI.preview.getGenerativeModel({
 });
 
 // Tách thành 2 cấu hình riêng biệt
-const functionConfig = {
-    temperature: 1,
-    topP: 0.95,
-    topK: 64,
-    maxOutputTokens: 8192,
-};
-
-// const translationConfig = {
+// const functionConfig = {
 //     temperature: 1,
 //     topP: 0.95,
 //     topK: 64,
@@ -69,18 +63,25 @@ const functionConfig = {
 //     responseSchema: {
 //       type: "object",
 //       properties: {
-//         en: {
-//           type: "string"
+//         translation: {
+//           type: "string",
+//           description: "English translation of the input text"
 //         }
 //       },
-//       required: [
-//         "en"
-//       ]
+//       required: ["translation"]
 //     }
 // };
+const functionConfig = {
+    temperature: 1,
+    topP: 0.95,
+    topK: 64,
+    maxOutputTokens: 8192,
+};
 
-const tools = [{
-  functionDeclarations: [{
+const tools = [
+    {
+  functionDeclarations: [
+    {
     name: "saveNewLanguageCode",
     description: "Save a new detected language code to the database if it doesn't exist",
     parameters: {
@@ -94,7 +95,22 @@ const tools = [{
       },
       required: ["detectedLanguage"]
     }
-  }]
+  },
+ {
+      name: "translateText",
+      description: "Translate the text to English",
+      parameters: {
+        type: "object",
+        properties: {
+          translatedText: {
+            type: "string",
+            description: "The translated text"
+          }
+        },
+        required: ["translatedText"]
+      }
+    },
+    ]
 }];
 
 // use onDocumentWritten here to prepare to "edit message" feature later
@@ -137,8 +153,8 @@ exports.onChatWritten = v2.firestore.onDocumentWritten("/public/{messageId}",asy
     // const languagesSnapshot = await languagesCollection.get();
     // const languages = languagesSnapshot.docs.map((doc) => doc.data().code);
 
-    // Chat session cho function calling
-    const functionSession = generativeModelPreview.startChat({
+    // Chat session cho cả hai nhiệm vụ
+    const chatSession = generativeModelPreview.startChat({
         generationConfig: functionConfig,
         tools: tools,
         toolConfig: {
@@ -148,38 +164,40 @@ exports.onChatWritten = v2.firestore.onDocumentWritten("/public/{messageId}",asy
         }
     });
 
-    // First, detect the language
-    const detectResult = await functionSession.sendMessage(
-      `Detect the language of this text and return only the ISO 639-1 language code using the saveNewLanguageCode function: "${message}"`
+    // Gửi một prompt duy nhất để thực hiện cả hai nhiệm vụ
+    const result = await chatSession.sendMessage(
+      `Please perform two tasks:
+      1. Translate this text to English and return the translation in JSON format that the language code as key and the translated text as value: "${message}"
+      2. detect language of the text and call saveNewLanguageCode function with the ISO 639-1 language code.
+   Example response:
+   {
+    "en": "Hello, how are you?",
+    "vi": "Xin chào, bạn thế nào?"
+   }`
     );
 
-    // Handle function call if present
-    const functionCall = detectResult.response.candidates[0].content.parts[0].functionCall;
-    if (functionCall && functionCall.name === "saveNewLanguageCode") {
-      const args = functionCall.args;
-      await saveNewLanguageCode(languagesCollection, args.detectedLanguage, languages);
+    const response = result.response;
+    console.log('Response:', JSON.stringify(response));
+
+    // Xử lý function call nếu có
+    const functionCall = response.candidates[0].content.parts.find((part) => part.functionCall);
+    if (functionCall) {
+        const args = functionCall.functionCall.args;
+        await saveNewLanguageCode(languagesCollection, args.detectedLanguage, languages);
     }
 
-    // Chat session mới cho việc dịch
-    // const translationSession = generativeModelPreview.startChat({
-    //     generationConfig: translationConfig
-    // });
-
-    // // Continue with translation...
-    // const result = await translationSession.sendMessage(`translate this text to English: ${message}`);
-    // const response = result.response;
-    // console.log('Response:', JSON.stringify(response));
-
-    // const jsonTranslated = response.candidates[0].content.parts[0].text;
-    // console.log('translated json: ', jsonTranslated);
-    // // parse this json to get translated text out
-    // const translated = JSON.parse(jsonTranslated);
-    // console.log('final result: ', translated.en);
+    // Lấy bản dịch từ phản hồi JSON
+    const translatedPart = response.candidates[0].content.parts.find((part) => part.text);
+    let translatedText = '';
+    if (translatedPart) {
+        const jsonResponse = JSON.parse(translatedPart.text);
+        translatedText = jsonResponse.translation;
+    }
 
     return event.data.after.ref.set({
         'translated': {
-            'original':message,
-            // 'en': translated.en
+            'original': message,
+            'en': translatedText
         }
     }, {merge: true});
 });
