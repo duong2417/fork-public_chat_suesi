@@ -46,43 +46,62 @@ const generativeModelPreview = vertexAI.preview.getGenerativeModel({
 
 // use onDocumentWritten here to prepare to "edit message" feature later
 exports.onChatWritten = v2.firestore.onDocumentWritten("/public/{messageId}", async (event) => {
-    // Get list of languages from Firestore
-    const db = admin.firestore();
-    const languagesCollection = db.collection("languages");
-    const languagesSnapshot = await languagesCollection.get();
-    const languages = languagesSnapshot.docs.map((e) => e.data().code);
-    console.log("Current languages in database:", languages);
-    
-const generationConfig = {
-  temperature: 1,
-  topP: 0.95,
-  topK: 64,
-  maxOutputTokens: 8192,
-  // responseSchema: {
-  //   type: "object",
-  //   properties: languages.reduce((acc, lang) => {
-  //     acc[lang] = { type: "string" };
-  //     return acc;
-  //   }, {}),
-  //   required: languages
-  // },
-};
-  // const translateConfig = {
-  //   name: "translate",
-  //   description: "Translate the message to target languages",
-  //   parameters: {
+  // Get list of languages from Firestore
+  const db = admin.firestore();
+  const languagesCollection = db.collection("languages");
+  const languagesSnapshot = await languagesCollection.get();
+  const languages = languagesSnapshot.docs.map((e) => e.data().code);
+  console.log("Current languages in database:", languages);
+
+  const translateConfig = {
+    temperature: 1,
+    topP: 0.95,
+    topK: 64,
+    maxOutputTokens: 8192,
+    responseMimeType: "application/json",
+    responseSchema: {
+      type: "object",
+      properties: languages.reduce((acc, lang) => {
+        acc[lang] = { type: "string" };
+        return acc;
+      }, {}),
+      required: languages
+    },
+  };
+  // const chatSessionConfig = {
+  //   temperature: 1,
+  //   topP: 0.95,
+  //   topK: 64,
+  //   maxOutputTokens: 8192,
+  //   responseSchema: {
   //     type: "object",
   //     properties: languages.reduce((acc, lang) => {
   //       acc[lang] = { type: "string" };
   //       return acc;
   //     }, {}),
-  //     required: languages
-  //   }
+  //     required: languages,
+  //   },
+  //   functionDeclarations: [
+  //     {
+  //       name: "saveNewLanguageCode",
+  //       description: "Save a new detected language code to the database if it doesn't exist",
+  //       parameters: {
+  //         type: "object",
+  //         properties: {
+  //           detectedLanguage: {
+  //             type: "string",
+  //             description: "The ISO 639-1 language code that was detected",
+  //             pattern: "^[a-z]{2}$", // Đảm bảo định dạng ISO 639-1
+  //           },
+  //         },
+  //         required: ["detectedLanguage"],
+  //       },
+  //     },
+  //   ],
   // };
   const tools = [
     {
       functionDeclarations: [
-        // translateConfig,
         {
           name: "saveNewLanguageCode",
           description: "Save a new detected language code to the database if it doesn't exist",
@@ -123,40 +142,61 @@ const generationConfig = {
       return;
     }
   }
-
-  const chatSession = generativeModelPreview.startChat({
-    generationConfig: generationConfig,
+  const translateSession = generativeModelPreview.startChat({
+    generateContentConfig: translateConfig,
     tools: tools,
-    toolConfig: {
-      functionCallConfig: {
-        mode: "ANY"
-      }
-    }
   });
 
-  // Sửa đổi prompt để yêu cầu phản hồi rõ ràng hơn
-  const result = await chatSession.sendMessage(`
-    Analyze this message: "${message}"
-    
-    Please respond in this format:
-    1. Explanation of the detected language
-    2. English translation
-    3. Call saveNewLanguageCode function if needed
-    
-    Example response:
-    "I detected that this message is in Vietnamese.
-    English translation: Hello, how are you?
-    [Then make function call if needed]"
-    `);
+  const result = await translateSession.sendMessage(`
+    The target languages: ${languages.join(", ")}.
+    The input text: "${message}". You must do all tasks:
+        1. translate the input text to target languages and return the result in the "text" field.
+        2. detect language of the input text. Only if it doesn't exist in target languages, trigger function calling, else not do.
+        IMPORTANT: YOU MUST RETURN THE "text" FIELD.
+        Example response structure:
+        {
+          "text": {"vi": "Chào"},
+          "functionCall": {
+            "name": "saveNewLanguageCode",
+            "args": {
+              "detectedLanguage": "vi"
+            }
+          }
+        }
+        `
+  );
+  // 2. detect language of the text and call saveNewLanguageCode function with the ISO 639-1 language code.
+  // const result = await generativeModelPreview.generateContent({
+  //   contents: [{
+  //     role: "user",
+  //     parts: [{
+  //       text: `
+  //       1. Return the translation as a JSON object where "text" is a Map.
+  //       2. detect language of the text and call saveNewLanguageCode function with the ISO 639-1 language code.
+  //       Example response structure:
+  //       {
+  //         "text": {
+  //           "en": "Hello, world!"
+  //         },
+  //         "functionCall": {
+  //           "name": "saveNewLanguageCode",
+  //           "args": {
+  //             "detectedLanguage": "en"
+  //           }
+  //         }
+  //       }
+  //       `
+  //     }]
+  //   }],
+  //   tools: tools,
+  // });
 
   const response = result.response;
   console.log('Response:', JSON.stringify(response));
 
-  // Xử lý phản hồi
   const responseContent = response.candidates[0].content;
   let detectedLanguage = null;
 
-  // Xử lý text từ phản hồi
   if (responseContent.parts) {
     for (const part of responseContent.parts) {
       if (part.text) {
@@ -178,13 +218,14 @@ const generationConfig = {
   }
 
   // Cập nhật document với bản dịch
-  const translationMatch = responseContent.parts.find(part => part.text)?.text.match(/English translation:(.*?)($|\[)/s);
-  const englishTranslation = translationMatch ? translationMatch[1].trim() : message;
+  // const translationMatch = responseContent.parts.find((part) => part.text).text.match(/English translation:(.*?)($|\[)/s);
+  // const englishTranslation = translationMatch ? translationMatch[1].trim() : message;
 
   return event.data.after.ref.set({
     'translated': {
       'original': message,
-      'en': englishTranslation
+      // ...translated,
+      // 'en': englishTranslation
     }
   }, { merge: true });
 });
