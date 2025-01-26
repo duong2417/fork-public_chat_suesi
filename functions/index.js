@@ -39,28 +39,6 @@ const languageDetectionFunction = {
     required: ["detectedLanguage"]
   }
 };
-
-// const translationFunction = {
-//   name: "process_translations",
-//   description: "Process translations of the message to all target languages",
-//   parameters: {
-//     type: "object",
-//     properties: {
-//       translations: {
-//         type: "array",
-//         description: "Translations of the message to all existing languages",
-//         items: {
-//           type: "object",
-//           properties: {
-//             translation: { type: "string" },
-//             code: { type: "string" }
-//           }
-//         }
-//       }
-//     },
-//     required: ["translations"]
-//   }
-// };
 // const generationConfig = {
 //   temperature: 1,
 //   topP: 0.95,

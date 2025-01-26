@@ -53,73 +53,6 @@ exports.onChatWritten = v2.firestore.onDocumentWritten("/public/{messageId}", as
   const languages = languagesSnapshot.docs.map((e) => e.data().code);
   console.log("Current languages in database:", languages);
 
-  const translateConfig = {
-    temperature: 1,
-    topP: 0.95,
-    topK: 64,
-    maxOutputTokens: 8192,
-    responseMimeType: "application/json",
-    responseSchema: {
-      type: "object",
-      properties: languages.reduce((acc, lang) => {
-        acc[lang] = { type: "string" };
-        return acc;
-      }, {}),
-      required: languages
-    },
-  };
-  // const chatSessionConfig = {
-  //   temperature: 1,
-  //   topP: 0.95,
-  //   topK: 64,
-  //   maxOutputTokens: 8192,
-  //   responseSchema: {
-  //     type: "object",
-  //     properties: languages.reduce((acc, lang) => {
-  //       acc[lang] = { type: "string" };
-  //       return acc;
-  //     }, {}),
-  //     required: languages,
-  //   },
-  //   functionDeclarations: [
-  //     {
-  //       name: "saveNewLanguageCode",
-  //       description: "Save a new detected language code to the database if it doesn't exist",
-  //       parameters: {
-  //         type: "object",
-  //         properties: {
-  //           detectedLanguage: {
-  //             type: "string",
-  //             description: "The ISO 639-1 language code that was detected",
-  //             pattern: "^[a-z]{2}$", // Đảm bảo định dạng ISO 639-1
-  //           },
-  //         },
-  //         required: ["detectedLanguage"],
-  //       },
-  //     },
-  //   ],
-  // };
-  const tools = [
-    {
-      functionDeclarations: [
-        {
-          name: "saveNewLanguageCode",
-          description: "Save a new detected language code to the database if it doesn't exist",
-          parameters: {
-            type: "object",
-            properties: {
-              detectedLanguage: {
-                type: "string",
-                description: "The ISO 639-1 language code that was detected",
-                pattern: "^[a-z]{2}$" // Thêm pattern để đảm bảo format ISO 639-1
-              }
-            },
-            required: ["detectedLanguage"]
-          }
-        },
-      ]
-    }];
-
   const document = event.data.after.data();
   const message = document["message"];
   console.log(`message: ${message}`);
@@ -142,75 +75,93 @@ exports.onChatWritten = v2.firestore.onDocumentWritten("/public/{messageId}", as
       return;
     }
   }
+  // const tools = [
+  //   {
+  //     functionDeclarations: [
+  //       {
+  //         name: "saveNewLanguageCode",
+  //         description: "Save a new detected language code to the database if it doesn't exist",
+  //         parameters: {
+  //           type: "object",
+  //           properties: {
+  //             detectedLanguage: {
+  //               type: "string",
+  //               description: "The ISO 639-1 language code that was detected",
+  //               pattern: "^[a-z]{2}$" // Thêm pattern để đảm bảo format ISO 639-1
+  //             }
+  //           },
+  //           required: ["detectedLanguage"]
+  //         }
+  //       },
+  //     ]
+  //   }];
+  const generationConfig = {
+    temperature: 1,
+    topP: 0.95,
+    topK: 64,
+    maxOutputTokens: 8192,
+    responseMimeType: "application/json",
+    responseSchema: {
+      type: "object",
+      properties:
+      {
+        "detectedLanguage": {
+          type: "string",
+          description: "The ISO 639-1 language code that was detected",
+          pattern: "^[a-z]{2}$"
+        },
+        "translation": languages.reduce((acc, lang) => {
+          acc[lang] = { type: "string" };
+          return acc;
+        }, {}),
+      },
+      required: ["detectedLanguage", "translation"]
+    },
+  };
   const translateSession = generativeModelPreview.startChat({
-    generateContentConfig: translateConfig,
-    tools: tools,
+    generateContentConfig: generationConfig,
+    // tools: tools,
+    // toolConfig: {
+    //   functionCallingConfig:{
+    //     mode: "ANY"
+    //   }
+    // }
   });
 
   const result = await translateSession.sendMessage(`
     The target languages: ${languages.join(", ")}.
-    The input text: "${message}". You must do all tasks:
-        1. translate the input text to target languages and return the result in the "text" field.
-        2. detect language of the input text. Only if it doesn't exist in target languages, trigger function calling, else not do.
-        IMPORTANT: YOU MUST RETURN THE "text" FIELD.
-        Example response structure:
+    The input text: "${message}". You must do:
+        1. If the target languages are not empty, translate the input text to target languages, else if the target languages are empty, return null as value of "translation" field.
+        2. detect language of the input text.
+        Example: Translate "Chào" to ["ja", "en"]:
         {
-          "text": {"vi": "Chào"},
-          "functionCall": {
-            "name": "saveNewLanguageCode",
-            "args": {
-              "detectedLanguage": "vi"
-            }
-          }
+          "detectedLanguage": "vi",
+          "translation": {"ja": "こんにちは", "en": "Hello"},
         }
         `
   );
-  // 2. detect language of the text and call saveNewLanguageCode function with the ISO 639-1 language code.
-  // const result = await generativeModelPreview.generateContent({
-  //   contents: [{
-  //     role: "user",
-  //     parts: [{
-  //       text: `
-  //       1. Return the translation as a JSON object where "text" is a Map.
-  //       2. detect language of the text and call saveNewLanguageCode function with the ISO 639-1 language code.
-  //       Example response structure:
-  //       {
-  //         "text": {
-  //           "en": "Hello, world!"
-  //         },
-  //         "functionCall": {
-  //           "name": "saveNewLanguageCode",
-  //           "args": {
-  //             "detectedLanguage": "en"
-  //           }
-  //         }
-  //       }
-  //       `
-  //     }]
-  //   }],
-  //   tools: tools,
-  // });
 
   const response = result.response;
   console.log('Response:', JSON.stringify(response));
 
   const responseContent = response.candidates[0].content;
+  let translationData = null;
   let detectedLanguage = null;
 
-  if (responseContent.parts) {
-    for (const part of responseContent.parts) {
-      if (part.text) {
-        console.log('Explanation and translation:', part.text);
-      }
-      if (part.functionCall) {
-        const { name, args } = part.functionCall;
-        if (name === 'saveNewLanguageCode') {
-          detectedLanguage = args.detectedLanguage;
-          console.log('Detected language:', detectedLanguage);
-        }
-      }
+  if (responseContent.parts && responseContent.parts[0].text) {
+    try {
+      // Trích xuất JSON từ phần text (bỏ qua các ký tự markdown ```)
+      const jsonText = responseContent.parts[0].text.replace(/```json\n|\n```/g, '');
+      translationData = JSON.parse(jsonText);
+      detectedLanguage = translationData.detectedLanguage;
+      console.log('Detected language:', detectedLanguage);
+      console.log('Translation data:', translationData.translation);
+    } catch (error) {
+      console.error('Error parsing translation response:', error);
     }
   }
+
+  console.log('Translation data:', translationData);
 
   // Lưu ngôn ngữ mới nếu được phát hiện
   if (detectedLanguage) {
@@ -218,14 +169,10 @@ exports.onChatWritten = v2.firestore.onDocumentWritten("/public/{messageId}", as
   }
 
   // Cập nhật document với bản dịch
-  // const translationMatch = responseContent.parts.find((part) => part.text).text.match(/English translation:(.*?)($|\[)/s);
-  // const englishTranslation = translationMatch ? translationMatch[1].trim() : message;
-
   return event.data.after.ref.set({
     'translated': {
       'original': message,
-      // ...translated,
-      // 'en': englishTranslation
+      ...translationData.translation
     }
   }, { merge: true });
 });
