@@ -1,72 +1,24 @@
-/* eslint-disable comma-spacing */
-/* eslint-disable require-jsdoc */
 /* eslint-disable spaced-comment */
-/* eslint-disable eol-last */
-/* eslint-disable operator-linebreak */
-/* eslint-disable key-spacing */
-/* eslint-disable quotes */
+/* eslint-disable comma-spacing */
+/* eslint-disable object-curly-spacing */
+/* eslint-disable require-jsdoc */
 /* eslint-disable no-trailing-spaces */
 /* eslint-disable comma-dangle */
-/* eslint-disable object-curly-spacing */
+/* eslint-disable key-spacing */
+/* eslint-disable quotes */
 /* eslint-disable indent */
 /* eslint-disable max-len */
+
 const v2 = require("firebase-functions/v2");
 const vertexAIApi = require("@google-cloud/vertexai");
 const admin = require("firebase-admin");
 
 admin.initializeApp();
 
-const project = "flutter-dev-search";
-const location = "us-central1";
-const textModel = "gemini-1.5-flash";
-// const visionModel = "gemini-1.0-pro-vision";
-
-const vertexAI = new vertexAIApi.VertexAI({ project: project, location: location });
-
-// Định nghĩa function declaration cho language detection
-const languageDetectionFunction = {
-  name: "save_new_language",
-  description: "Save language code to Firestore if it does not exist in the list of languages",
-  parameters: {
-    type: "object",
-    properties: {
-      detectedLanguage: {
-        type: "string",
-        description: "the language code of the message that Gemini detected",
-        pattern: "^[a-z]{2}$" // Thêm pattern để đảm bảo format ISO 639-1
-      }
-    },
-    required: ["detectedLanguage"]
-  }
-};
-// const generationConfig = {
-//   temperature: 1,
-//   topP: 0.95,
-//   topK: 64,
-//   maxOutputTokens: 8192,
-//   responseMimeType: "application/json",
-//   responseSchema: {
-//     type: "array",
-//     items: {
-//       type: "object",
-//       properties: {
-//         translation: {
-//           type: "string",
-//         },
-//         code: {
-//           type: "string",
-//         },
-//       },
-//       required: ["translation", "code"],
-//     },
-//   },
-// };
-
-const generativeModelPreview = vertexAI.preview.getGenerativeModel({
-  model: textModel,
-});
-
-// Chuyển hàm saveNewLanguageCode thành async function để xử lý function calling
+const project = 'flutter-dev-search';
+const location = 'us-central1';
+const textModel = 'gemini-1.5-flash';
+// const visionModel = 'gemini-1.0-pro-vision';
 async function saveNewLanguageCode(languagesCollection, detectedLanguage, languages) {
   if (detectedLanguage && !languages.includes(detectedLanguage)) {
     console.log(`Adding new language code: ${detectedLanguage}`);
@@ -81,135 +33,115 @@ async function saveNewLanguageCode(languagesCollection, detectedLanguage, langua
   }
   return false;
 }
+const vertexAI = new vertexAIApi.VertexAI({ project: project, location: location });
 
-// trigger when the chat data on public collection change to translate the message
+// const generativeVisionModel = vertexAI.getGenerativeModel({
+//     model: visionModel,
+// });
+
+const generativeModelPreview = vertexAI.preview.getGenerativeModel({
+  model: textModel,
+});
+
+// use onDocumentWritten here to prepare to "edit message" feature later
 exports.onChatWritten = v2.firestore.onDocumentWritten("/public/{messageId}", async (event) => {
   const document = event.data.after.data();
   const message = document["message"];
-  const original = document["original"];
-  const translations = document["translations"];
+  console.log(`message: ${message}`);
 
-  console.log(`Processing message: ${message}`);
-  console.log(`Original: ${original}`);
-  console.log(`Has translations: ${translations != null}`);
-
-  // 1. Check conditions to skip
-  if (!message || message.trim() === '') {
-    console.log("Message is empty, skipping");
+  // no message? do nothing
+  if (message == undefined) {
     return;
   }
+  const curTranslated = document["translated"];
 
-  // 2. Skip if this message is the original
-  if (message === original) {
-    console.log("This is an original message that was already processed, skipping");
-    return;
-  }
+  // check if message is translated
+  if (curTranslated != undefined) {
+    // message is translated before, 
+    // check the original message
+    const original = curTranslated["original"];
 
-  // Get list of languages from Firestore
-  const db = admin.firestore();
-  const languagesCollection = db.collection("languages");
-  const languagesSnapshot = await languagesCollection.get();
-  const languages = languagesSnapshot.docs.map((e) => e.data().code);
-
-  console.log("Current languages in database:", languages);
-
-  // const chatSession = generativeModelPreview.startChat({
-  //   //use toolConfig instead of generationConfig to use function calling
-  //   toolConfig: {
-  //     functionDeclarations: [{
-  //       name: "processMessage",
-  //       description: "Process message language and translations",
-  //       parameters: {
-  //         type: "object",
-  //         properties: {
-  //           detectedLanguage: {
-  //             type: "string",
-  //             description: "ISO 639-1 language code of the detected language",
-  //             pattern: "^[a-z]{2}$"
-  //           },
-  //           translations: {
-  //             type: "array",
-  //             description: "Translations of the message to all existing languages",
-  //             items: {
-  //               type: "object",
-  //               properties: {
-  //                 translation: { type: "string" },
-  //                 code: { type: "string" }
-  //               }
-  //             }
-  //           }
-  //         },
-  //         required: ["detectedLanguage", "translations"]
-  //       }
-  //     }],
-  //     functionCallMode: "REQUIRED"// để cho phép model tự do gọi function
-  //   }
-  // });
-
-  let translated = [];
-  try {
-    const chatSession = generativeModelPreview.startChat({
-      toolConfig: {
-        functionDeclarations: [languageDetectionFunction],
-        functionCallMode: "REQUIRED" // Thay đổi từ ANY thành REQUIRED
-      }
-    });
-    
-    const result = await chatSession.sendMessage(`
-      Target languages: [${languages.join(',')}]
-      The message: ${message}
-      You have 2 tasks:
-      1. If the target languages not empty, translate the message to the target languages.
-      2. Detect the language of the message and return the functionCall that I configured for you.      `);
-    
-    // Log toàn bộ cấu trúc response để debug
-    const fullResponse = JSON.stringify(result.response, null, 2);
-    console.log("Full response structure:", fullResponse);
-
-    // Parse response
-    const responseText = result.response.candidates[0].content.parts[0].text;
-    console.log("Raw response text:", responseText);
-    
-    try {
-      // Tìm và trích xuất phần JSON từ responseText
-      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) {
-        throw new Error("Không tìm thấy JSON trong phản hồi");
-      }
-      
-      const parsedResponse = JSON.parse(jsonMatch[0]);
-      console.log("Parsed response:", parsedResponse);
-
-      // Xử lý dữ liệu đã parse
-      const detectedLanguage = parsedResponse.language_detection.detected_language;
-      translated = parsedResponse.translation || [];
-      
-      console.log(`Translations:`, translated);
-      console.log(`Detected language: ${detectedLanguage}`);
-
-      // Xử lý function calls từ Gemini nếu có
-      if (detectedLanguage) {
-        await saveNewLanguageCode(
-          languagesCollection,
-          detectedLanguage,
-          languages
-        );
-      }
-    } catch (error) {
-      console.error("Error parsing response:", error);
+    console.log('Original: ', original);
+    // message is same as original, meaning it's already translated. Do nothing
+    if (message == original) {
+      return;
     }
-  } catch (error) {
-    console.error("Processing error:", error);
+  }
+    // Get list of languages from Firestore
+    const db = admin.firestore();
+    const languagesCollection = db.collection("languages");
+    const languagesSnapshot = await languagesCollection.get();
+    const languages = languagesSnapshot.docs.map((e) => e.data().code);
+    console.log("Current languages in database:", languages);
+
+  const generationConfig = {
+    temperature: 1,
+    topP: 0.95,
+    topK: 64,
+    maxOutputTokens: 8192,
+    responseMimeType: "application/json",
+    responseSchema: {
+      type: "object",
+      properties:
+      {
+        "detectedLanguage": {
+          type: "string",
+          description: "The ISO 639-1 language code that was detected",
+          pattern: "^[a-z]{2}$"
+        },
+        "translation": languages.reduce((acc, lang) => {
+          acc[lang] = { type: "string" };
+          return acc;
+        }, {}),
+      },
+      required: ["detectedLanguage", "translation"]
+    },
+  };
+  const translateSession = generativeModelPreview.startChat({
+    generateContentConfig: generationConfig,
+  });
+
+  const result = await translateSession.sendMessage(`
+    The target languages: ${languages.join(", ")}.
+    The input text: "${message}". You must do:
+    1. detect language of the input text. Only return the language code that is in ISO 639-1 format. If you can't detect the language, return "und" as value of "detectedLanguage" field.
+    2. If the target languages are not empty, translate the input text to target languages, ignore language that is identical to the detected language. Else if the target languages are empty, return null as value of "translation" field.
+        Example: Translate "Chào" to ["ja", "en", "vi"]:
+        {
+          "detectedLanguage": "vi",
+          "translation": {"ja": "こんにちは", "en": "Hello"},
+        }
+        `
+  );
+
+  const response = result.response;
+  console.log('Response:', JSON.stringify(response));
+
+  const responseContent = response.candidates[0].content;
+  let translationData = null;
+  let detectedLanguage = null;
+
+    try {
+      // Trích xuất JSON từ phần text (bỏ qua các ký tự markdown ```)
+      const jsonText = responseContent.parts[0].text.replace(/```json\n|\n```/g, '');
+      translationData = JSON.parse(jsonText);
+      detectedLanguage = translationData.detectedLanguage;
+      console.log('Detected language:', detectedLanguage);
+      console.log('Translation data:', translationData.translation);
+    } catch (error) {
+      console.error('Error parsing translation response:', error);
+    }
+
+  // Lưu ngôn ngữ mới nếu được phát hiện
+  if (detectedLanguage && detectedLanguage !== "und") {
+    await saveNewLanguageCode(languagesCollection, detectedLanguage, languages);
   }
 
-  // Finally, save results with original and translations
-  try {
-    await event.data.after.ref.set({
-      "original": message,
-      "translations": translated,
-    }, { merge: true });
-    console.log("Successfully saved translations");
-  } catch (error) {
-    console.error("Error saving translations:", error);
-  }
+  // Cập nhật document với bản dịch
+  return event.data.after.ref.set({
+    'translated': {
+      'original': message,
+      ...translationData.translation
+    }
+  }, { merge: true });
 });
