@@ -5,20 +5,22 @@ final class Message {
   final String id;
   final String message;
   final String sender;
+  final String detectedLanguage;
   final Timestamp timestamp;
-  final Map<String,dynamic> translations;
+  final Map<String, dynamic> translations;
 
   Message({required this.message, required this.sender})
       : id = '',
         timestamp = Timestamp.now(),
-        translations = {};
+        translations = {},
+        detectedLanguage = '';
 
   Message.fromMap(this.id, Map<String, dynamic> map)
       : message = map['message'] ?? '',
         sender = map['sender'],
+        detectedLanguage = map['detectedLanguage'] ?? '',//cp ??'' to fix type 'Null' is not a subtype of type 'String'
         timestamp = map['time'],
         translations = (map['translated'] as Map<String, dynamic>?) ?? {};
-
 
   Map<String, dynamic> toMap() =>
       {'message': message, 'sender': sender, 'time': timestamp};
@@ -56,10 +58,10 @@ class TranslationModel {
   TranslationModel.fromMap(Map<String, dynamic> map)
       : translation = map['translation'],
         code = map['code'];
-        // languageNames = (map['language_names'] as List<dynamic>?)
-        //         ?.map((e) => e.toString())
-        //         .toList() ??
-        //     [];
+  // languageNames = (map['language_names'] as List<dynamic>?)
+  //         ?.map((e) => e.toString())
+  //         .toList() ??
+  //     [];
   Map<String, dynamic> toMap() => {
         'translation': translation,
         'code': code,

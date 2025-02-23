@@ -61,6 +61,7 @@ class PublicChatScreen extends StatelessWidget {
                                   photoUrl: photoUrl,
                                   displayName: displayName,
                                   translations: message.translations,
+                                  detectedLanguage: message.detectedLanguage,
                                   // translations: const {
                                   //   'translations': "message.translations",
                                   // }
