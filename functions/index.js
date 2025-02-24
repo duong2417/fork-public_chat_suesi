@@ -8,6 +8,17 @@ const project = "proj-atc";
 const location = "us-central1";
 const textModel = "gemini-1.5-flash";
 // const visionModel = 'gemini-1.0-pro-vision';
+
+let cachedLanguages = null;
+async function getLanguages(languagesCollection) {
+  if (!cachedLanguages) {
+    const languagesSnapshot = await languagesCollection.get();
+    cachedLanguages = languagesSnapshot.docs.map((e) => e.data().code);
+    console.log("Languages loaded into cache:", cachedLanguages);
+  }
+  return cachedLanguages;
+}
+
 async function saveNewLanguageCode(languagesCollection, detectedLanguage, languages) {
   if (detectedLanguage && !languages.includes(detectedLanguage)) {
     console.log(`Adding new language code: ${detectedLanguage}`);
@@ -59,15 +70,14 @@ exports.onChatWritten = v2.firestore.onDocumentWritten("/public/{messageId}", as
   // Get list of languages from Firestore
   const db = admin.firestore();
   const languagesCollection = db.collection("languages");
-  const languagesSnapshot = await languagesCollection.get();
-  const languages = languagesSnapshot.docs.map((e) => e.data().code);
+  const languages = await getLanguages(languagesCollection);
   console.log("Current languages in database:", languages);
 
   const generationConfig = {
-    temperature: 1,
-    topP: 0.95,
-    topK: 64,
-    maxOutputTokens: 8192,
+    temperature: 0.7,
+    topP: 0.9,
+    topK: 50,
+    maxOutputTokens: 4096,
     responseMimeType: "application/json",
     responseSchema: {
       type: "object",
