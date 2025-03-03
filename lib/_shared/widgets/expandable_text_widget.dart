@@ -20,11 +20,6 @@ class _ExpandableTextWidgetState extends State<ExpandableTextWidget> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _checkOverflow());
-  }
-
-  late final TextPainter textPainter;
-  void _checkOverflow() {
     textPainter = TextPainter(
       text: TextSpan(
         text: widget.text,
@@ -33,7 +28,11 @@ class _ExpandableTextWidgetState extends State<ExpandableTextWidget> {
       maxLines: widget.maxLines,
       textDirection: TextDirection.ltr,
     );
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkOverflow());
+  }
 
+  late final TextPainter textPainter;
+  void _checkOverflow() {
     textPainter.layout(maxWidth: MediaQuery.of(context).size.width);
 
     setState(() {
