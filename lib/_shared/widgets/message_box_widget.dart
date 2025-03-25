@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:public_chat/utils/locale_support.dart';
 
 class MessageBox extends StatefulWidget {
   final ValueChanged<String> onSendMessage;
@@ -31,7 +32,7 @@ class _MessageBoxState extends State<MessageBox> {
         focusedErrorBorder: theme.inputDecorationTheme.focusedErrorBorder,
         fillColor: theme.inputDecorationTheme.fillColor,
         focusColor: theme.inputDecorationTheme.focusColor,
-        hintText: 'Enter your message',
+        hintText: context.locale.messageBoxHint,
         hintStyle: theme.textTheme.bodyMedium?.copyWith(
           color: Colors.grey,
         ),
