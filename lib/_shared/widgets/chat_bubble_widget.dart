@@ -191,9 +191,5 @@ class _DefaultPersonWidget extends StatelessWidget {
   Widget build(BuildContext context) => const CircleAvatar(
         radius: 12,
         backgroundColor: Colors.grey,
-        // child: Icon(
-        //   Icons.person,
-        //   color: Colors.white,
-        // ),
       );
 }
