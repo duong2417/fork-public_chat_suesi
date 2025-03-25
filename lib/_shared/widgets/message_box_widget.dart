@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 class MessageBox extends StatefulWidget {
   final ValueChanged<String> onSendMessage;
   const MessageBox({required this.onSendMessage, super.key});

@@ -28,8 +28,7 @@ ThemeData darkThemeDefault = ThemeData(
       ),
     ),
   ),
-  scaffoldBackgroundColor:
-      Colors.black, //const Color(0xFF152033), //Colors.blueGrey[800],
+  scaffoldBackgroundColor: Colors.black,
   extensions: [
     MyTextTheme(
       heading: appTextStyle.copyWith(

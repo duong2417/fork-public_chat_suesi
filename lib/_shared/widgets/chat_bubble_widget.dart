@@ -162,12 +162,6 @@ class ChatBubble extends StatelessWidget {
     return const Radius.circular(20);
   }
 
-  Color buildColorMessageContainer(BuildContext context) {
-    return isMine
-        ? context.myColorScheme.messageMeColor!
-        : context.myColorScheme.messageOtherColor!;
-  }
-
   Widget buildTranslation(
       {required BuildContext context, required bool isMine}) {
     return Text.rich(

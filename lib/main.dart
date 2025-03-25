@@ -8,7 +8,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:public_chat/_shared/bloc/authentication/authentication_cubit.dart';
 import 'package:public_chat/features/chat/ui/public_chat_screen.dart';
 import 'package:public_chat/features/genai_setting/bloc/genai_bloc.dart';
-// import 'package:public_chat/features/login/ui/login_screen.dart';
+import 'package:public_chat/features/login/ui/login_screen.dart';
 import 'package:public_chat/firebase_options.dart';
 import 'package:public_chat/service_locator/service_locator.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -46,30 +46,38 @@ class MainApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isLandscape = isLandscapeFunc(context);
     return ScreenUtilInit(
-      designSize: const Size(375, 812),
+      designSize: isLandscape ? const Size(690, 360) : const Size(360, 690),
       minTextAdapt: true,
       builder: (context, child) {
         return MaterialApp(
-          theme: ThemeBase.lightTheme,
-          darkTheme: ThemeBase.darkTheme,
-          themeMode: ThemeMode.system,
-          localizationsDelegates: const [
-            AppLocalizations.delegate,
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
-          ],
-          supportedLocales: AppLocalizations.supportedLocales,
-          home: BlocBuilder<AuthenticationCubit, AuthenticationState>(
-              builder: (context, state) {
-            // if (state is Authenticated) {
-            return const PublicChatScreen();
-            // } else {
-            //   return const LoginScreen();
-            // }
-          }));
+            theme: ThemeBase.lightTheme,
+            darkTheme: ThemeBase.darkTheme,
+            themeMode: ThemeMode.system,
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: BlocBuilder<AuthenticationCubit, AuthenticationState>(
+                builder: (context, state) {
+              if (state is Authenticated) {
+                return const PublicChatScreen();
+              } else {
+                return const LoginScreen();
+              }
+            }));
       },
     );
   }
+}
+
+bool isLandscapeFunc(BuildContext context) {
+  var mediaQueryData = MediaQuery.sizeOf(context);
+  var screenWidth = mediaQueryData.width;
+  var screenHeight = mediaQueryData.height;
+  return screenWidth > screenHeight;
 }

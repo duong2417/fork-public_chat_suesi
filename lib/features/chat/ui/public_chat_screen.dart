@@ -1,14 +1,13 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-// import 'package:firebase_ui_firestore/firebase_ui_firestore.dart';
+import 'package:firebase_ui_firestore/firebase_ui_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-// import 'package:public_chat/_shared/bloc/user_manager/user_manager_cubit.dart';
+import 'package:public_chat/_shared/bloc/user_manager/user_manager_cubit.dart';
 import 'package:public_chat/_shared/data/chat_data.dart';
 import 'package:public_chat/_shared/widgets/chat_bubble_widget.dart';
 import 'package:public_chat/_shared/widgets/message_box_widget.dart';
-import 'package:public_chat/data.dart';
 import 'package:public_chat/features/chat/bloc/chat_cubit.dart';
 import 'package:public_chat/utils/locale_support.dart';
 
@@ -56,74 +55,60 @@ class _PublicChatScreenState extends State<PublicChatScreen> {
               Expanded(
                 child: Builder(
                   builder: (context) {
-                    final _msg = messages.reversed.toList();
-                    return ListView.builder(
+                    return FirestoreListView<Message>(
+                      query: context.read<ChatCubit>().chatContent,
                       reverse: true,
-                      itemCount: _msg.length,
-                      padding: const EdgeInsets.only(bottom: 10),
-                      itemBuilder: (BuildContext context, int index) {
-                        final position =
-                            determineMessagePosition(index, messages);
-                        double topPadding = position == Position.first ? 10 : 0;
-                        double bottomPadding =
-                            position == Position.last ? 10 : 0;
-                        return Padding(
-                          padding: EdgeInsets.only(
-                              top: topPadding, bottom: bottomPadding),
-                          child: ChatBubble(
-                            position: position,
-                            isMine: messages[index].isMe,
-                            message: messages[index].message,
-                            photoUrl: null,
-                            displayName: messages[index].sender,
-                            translations: messages[index].translations,
-                          ),
-                        );
+                      itemBuilder: (BuildContext context,
+                          QueryDocumentSnapshot<Message> doc) {
+                        if (!doc.exists) {
+                          return const SizedBox.shrink();
+                        }
+
+                        final Message message = doc.data();
+                        final query = context.read<ChatCubit>().chatContent;
+
+                        return FutureBuilder<Position>(
+                            future: _determineMessagePositionFromFirestore(
+                              currentMessage: message,
+                              query: query,
+                              currentDoc: doc,
+                            ),
+                            builder: (context, snapshot) {
+                              return BlocProvider<UserManagerCubit>.value(
+                                value: UserManagerCubit()
+                                  ..queryUserDetail(message.sender),
+                                child: BlocBuilder<UserManagerCubit,
+                                    UserManagerState>(
+                                  builder: (context, state) {
+                                    String? photoUrl;
+                                    String? displayName;
+
+                                    if (state is UserDetailState) {
+                                      photoUrl = state.photoUrl;
+                                      displayName = state.displayName;
+                                    }
+
+                                    return ChatBubble(
+                                        position:
+                                            snapshot.data ?? Position.middle,
+                                        isMine: message.sender == user?.uid,
+                                        message: message.message,
+                                        photoUrl: photoUrl,
+                                        displayName: displayName,
+                                        translations: message.translations);
+                                  },
+                                ),
+                              );
+                            });
                       },
+                      emptyBuilder: (context) => const Center(
+                        child: Text(
+                            'No messages found. Send the first message now!'),
+                      ),
+                      loadingBuilder: (context) => const Center(
+                        child: CircularProgressIndicator(),
+                      ),
                     );
-                    // return FirestoreListView<Message>(
-                    //   query: context.read<ChatCubit>().chatContent,
-                    //   reverse: true,
-                    //   itemBuilder: (BuildContext context,
-                    //       QueryDocumentSnapshot<Message> doc) {
-                    //     if (!doc.exists) {
-                    //       return const SizedBox.shrink();
-                    //     }
-
-                    //     final Message message = doc.data();
-
-                    //     return BlocProvider<UserManagerCubit>.value(
-                    //       value: UserManagerCubit()
-                    //         ..queryUserDetail(message.sender),
-                    //       child:
-                    //           BlocBuilder<UserManagerCubit, UserManagerState>(
-                    //         builder: (context, state) {
-                    //           String? photoUrl;
-                    //           String? displayName;
-
-                    //           if (state is UserDetailState) {
-                    //             photoUrl = state.photoUrl;
-                    //             displayName = state.displayName;
-                    //           }
-
-                    //           return ChatBubble(
-                    //               isMine: message.sender == user?.uid,
-                    //               message: message.message,
-                    //               photoUrl: photoUrl,
-                    //               displayName: displayName,
-                    //               translations: message.translations);
-                    //         },
-                    //       ),
-                    //     );
-                    //   },
-                    //   emptyBuilder: (context) => const Center(
-                    //     child: Text(
-                    //         'No messages found. Send the first message now!'),
-                    //   ),
-                    //   loadingBuilder: (context) => const Center(
-                    //     child: CircularProgressIndicator(),
-                    //   ),
-                    // );
                   },
                 ),
               ),
@@ -133,9 +118,9 @@ class _PublicChatScreenState extends State<PublicChatScreen> {
                     // do nothing
                     return;
                   }
-                  FirebaseFirestore.instance.collection('public').add(
-                      Message(sender: user.uid, message: value, isMe: true)
-                          .toMap());
+                  FirebaseFirestore.instance
+                      .collection('public')
+                      .add(Message(sender: user.uid, message: value).toMap());
                 },
               )
             ],
@@ -143,11 +128,40 @@ class _PublicChatScreenState extends State<PublicChatScreen> {
     );
   }
 
-  Position determineMessagePosition(int index, List<Message> messages) {
-    if (index == 0) return Position.last;
-    if (index == messages.length - 1) return Position.first;
-    if (messages[index].isMe != messages[index + 1].isMe) return Position.first;
-    if (messages[index - 1].isMe != messages[index].isMe) return Position.last;
+  Future<Position> _determineMessagePositionFromFirestore({
+    required Message currentMessage,
+    required Query<Message> query,
+    required QueryDocumentSnapshot<Message> currentDoc,
+  }) async {
+    // Lấy tin nhắn trước
+    final beforeQuery = query.endBefore([currentDoc]).limitToLast(1);
+
+    // Lấy tin nhắn sau
+    final afterQuery = query.startAfter([currentDoc]).limit(1);
+
+    final beforeDocs = await beforeQuery.get();
+    final afterDocs = await afterQuery.get();
+
+    final hasBefore = beforeDocs.docs.isNotEmpty;
+    final hasAfter = afterDocs.docs.isNotEmpty;
+
+    final beforeMessage = hasBefore ? beforeDocs.docs.first.data() : null;
+    final afterMessage = hasAfter ? afterDocs.docs.first.data() : null;
+
+    // Nếu không có tin nhắn trước và sau
+    if (!hasBefore && !hasAfter) return Position.single;
+
+    // Nếu là tin nhắn đầu tiên của chuỗi
+    if (!hasBefore || beforeMessage?.sender != currentMessage.sender) {
+      return Position.first;
+    }
+
+    // Nếu là tin nhắn cuối cùng của chuỗi
+    if (!hasAfter || afterMessage?.sender != currentMessage.sender) {
+      return Position.last;
+    }
+
+    // Nếu là tin nhắn ở giữa
     return Position.middle;
   }
 }

@@ -8,6 +8,7 @@ class MyTextTheme extends ThemeExtension<MyTextTheme> {
   final TextStyle? bodyMedium;
   final TextStyle? heading;
 
+  // Base text theme configuration
 
   @override
   ThemeExtension<MyTextTheme> copyWith() {
