@@ -24,7 +24,7 @@ class ChatCubit extends Cubit<ChatState> {
   void sendChat({required String uid, required String message}) {
     ServiceLocator.instance
         .get<Database>()
-        .writePublicMessage(Message(message: message, sender: uid));
+        .writePublicMessage(Message(message: message, sender: uid, isMe: false));
   }
 }
 
